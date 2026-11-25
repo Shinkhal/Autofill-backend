@@ -133,7 +133,7 @@ const { default: User } = await import('../dist/models/User.js');
 const { JobApplication } = await import('../dist/models/JobApplication.js');
 
 test('New feature endpoints require authentication', async () => {
-  for (const [path, method] of [['/api/jobs','GET'], ['/api/jobs','POST'], ['/api/listjobs','GET'], ['/api/listjobs/salaries','GET'], ['/api/listjobs/jsearch/123','GET'], ['/api/ats/analyze','POST']]) {
+  for (const [path, method] of [['/api/answers','GET'], ['/api/answers','POST'], ['/api/answers/match','GET'], ['/api/ats/history','GET'], ['/api/jobs/stats','GET'], ['/api/jobs','GET'], ['/api/jobs','POST'], ['/api/listjobs','GET'], ['/api/listjobs/salaries','GET'], ['/api/listjobs/jsearch/123','GET'], ['/api/ats/analyze','POST']]) {
     const response = await fetch(base + path, { method });
     assert.equal(response.status, 401, path);
   }
@@ -261,4 +261,26 @@ test('Closing HTTP server lets an active response finish', async () => {
   assert.equal(await (await response).text(), 'completed');
   await closing;
   assert.equal(closed, true);
+});
+
+test('P1 answer and ATS history lookups bind authenticated owner', async t => {
+  const {Answer} = await import('../dist/models/Answer.js');
+  const {ATSAnalysis} = await import('../dist/models/ATSAnalysis.js');
+  const owner='507f1f77bcf86cd799439011';
+  const target='507f1f77bcf86cd799439012';
+  t.mock.method(User,'findById',async()=>({_id:owner}));
+  t.mock.method(AuthSession,'exists',async()=>({_id:testSessionId}));
+  const headers={Authorization:'Bearer '+signToken({id:owner,email:'test@example.com',name:'Test'},testSessionId)};
+  t.mock.method(Answer,'findOne',filter=>{
+    assert.deepEqual(filter,{userId:owner,questionKey:'why us'});
+    return {lean:async()=>null};
+  });
+  t.mock.method(ATSAnalysis,'findOne',filter=>{
+    assert.deepEqual(filter,{userId:owner,_id:target});
+    return {lean:async()=>null};
+  });
+  const match=await fetch(base+'/api/answers/match?question=Why%20us%3F',{headers});
+  assert.equal(match.status,200);
+  assert.deepEqual(await match.json(),{answer:null,requiresReview:true});
+  assert.equal((await fetch(base+'/api/ats/history/'+target,{headers})).status,404);
 });

@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import multer from 'multer';
-import { analyzeResume } from '../controllers/atsController.js';
+import { analyzeResume, listATSHistory, getATSHistory, deleteATSHistory } from '../controllers/atsController.js';
 import { protect } from '../middlewares/authMiddleware.js';
 import { HttpError } from '../utils/http-error.js';
 
@@ -14,4 +14,7 @@ const upload = multer({
   }
 });
 router.post('/analyze', protect, upload.single('resume'), analyzeResume);
+router.get('/history',protect,listATSHistory);
+router.get('/history/:id',protect,getATSHistory);
+router.delete('/history/:id',protect,deleteATSHistory);
 export default router;

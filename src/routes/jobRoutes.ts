@@ -1,6 +1,7 @@
 import express from "express";
 import {
   getAllJobs,
+  jobStats,
   createJob,
   getJobById,
   updateJob,
@@ -12,6 +13,7 @@ const router = express.Router();
 
 router.get("/", protect, getAllJobs);
 router.post("/", protect, createJob);
+router.get("/stats", protect, jobStats);
 router.get("/:id", protect, getJobById);
 router.put("/:id", protect, updateJob);
 router.delete("/:id", protect, deleteJob);

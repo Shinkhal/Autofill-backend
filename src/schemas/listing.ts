@@ -8,7 +8,9 @@ export const listingQuery = z.object({
   employment_types: queryString.default(''),
   job_requirements: queryString.default(''),
   company_types: queryString.default(''),
-  radius: radius.default(25)
+  radius: radius.default(25),
+  page: z.coerce.number().int().min(1).max(10000).optional(),
+  limit: z.coerce.number().int().min(1).max(100).optional()
 });
 export const salaryQuery = z.object({
   job_title: queryString.min(1),

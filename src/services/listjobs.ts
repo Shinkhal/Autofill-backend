@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto';
+import { redisConnection } from '../config/redis.config.js';
 import { z } from 'zod';
 import striptags from 'striptags';
 import { logger } from '../utils/logger.util.js';
@@ -150,7 +152,7 @@ export function normalizeJob(source: ProviderSource, job: ProviderRow): Listing 
   }
 }
 
-export async function listJobs(query: ListingQuery) {
+async function fetchListings(query: ListingQuery) {
   const params: Record<string, string> = {
     query: [query.query, query.location].filter(Boolean).join(' '),
     num_pages: '1', country: 'in', date_posted: 'all', radius: String(query.radius)
@@ -185,7 +187,7 @@ export async function listJobs(query: ListingQuery) {
     jobs.push(...selected);
   });
   if (!successful) throw new HttpError(502, 'All job providers unavailable');
-  return { success: true, totalJobs: jobs.length, jobs, sources };
+  return { success: true, jobs: deduplicateJobs(jobs), sources };
 }
 
 export async function getListing(source: ProviderSource, id: string): Promise<Listing> {
@@ -203,4 +205,60 @@ export async function getListing(source: ProviderSource, id: string): Promise<Li
 
 export async function getSalaries(query: SalaryQuery) {
   return jsearch('/estimated-salary', { job_title: query.job_title, location: query.location, radius: String(query.radius) });
+}
+
+export function deduplicateJobs(jobs: Listing[]): Listing[] {
+  const ids = new Set<string>(), links = new Set<string>();
+  return jobs.filter(job => {
+    const id = job.source.toLowerCase()+':'+String(job.jobId);
+    let link = '';
+    if (typeof job.applyLink === 'string') {
+      try {
+        const url = new URL(job.applyLink);
+        url.hash = '';
+        for (const key of [...url.searchParams.keys()]) if (key.startsWith('utm_')) url.searchParams.delete(key);
+        url.searchParams.sort();
+        link = url.toString();
+      } catch {}
+    }
+    if (ids.has(id) || (link && links.has(link))) return false;
+    ids.add(id);
+    if (link) links.add(link);
+    return true;
+  });
+}
+
+type Listings = Awaited<ReturnType<typeof fetchListings>>;
+const pending = new Map<string, Promise<Listings>>();
+async function cachedListings(query: ListingQuery): Promise<Listings> {
+  const {page: _page, limit: _limit, ...filters} = query;
+  const key = 'autofill:jobs:v1:'+createHash('sha256').update(JSON.stringify(filters)).digest('hex');
+  const active = pending.get(key);
+  if (active) return active;
+  const task = (async () => {
+    if (getEnv.redis.enabled()) {
+      try {
+        const raw = await redisConnection.getClient().get<string>(key);
+        if (typeof raw === 'string') {
+          const data = JSON.parse(raw) as Listings;
+          if (data.success && Array.isArray(data.jobs) && data.sources) return data;
+        }
+      } catch { logger.warn({event:'job.cache.read.failed'}); }
+    }
+    const data = await fetchListings(query);
+    if (getEnv.redis.enabled()) {
+      try { await redisConnection.getClient().set(key, JSON.stringify(data), {ex:300}); }
+      catch { logger.warn({event:'job.cache.write.failed'}); }
+    }
+    return data;
+  })();
+  pending.set(key,task);
+  try { return await task; } finally { pending.delete(key); }
+}
+export async function listJobs(query: ListingQuery) {
+  const data = await cachedListings(query);
+  const totalJobs = data.jobs.length;
+  if (query.page === undefined && query.limit === undefined) return {...data,totalJobs};
+  const page = query.page ?? 1, limit = query.limit ?? 20;
+  return {...data,totalJobs,page,limit,totalPages:Math.ceil(totalJobs/limit),jobs:data.jobs.slice((page-1)*limit,page*limit)};
 }

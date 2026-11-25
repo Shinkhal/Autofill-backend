@@ -157,3 +157,7 @@ const cache = redisConnection.getClient();
 const worker = redisConnection.getBlockingClient('resume');
 const producer = redisConnection.getQueueClient();
 ```
+
+## P1 features
+
+Answer bank, application tracker statistics and follow-ups, Redis-backed job listing caching and pagination, and persistent ATS analysis history are documented in [P1 integration](docs/P1-INTEGRATION.md).

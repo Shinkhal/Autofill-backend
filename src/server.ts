@@ -1,3 +1,6 @@
+import { JobApplication } from './models/JobApplication.js';
+import { Answer } from './models/Answer.js';
+import { ATSAnalysis } from './models/ATSAnalysis.js';
 import { randomUUID } from 'node:crypto';
 import { createServer, type Server } from 'node:http';
 import { pathToFileURL } from 'node:url';
@@ -155,7 +158,7 @@ export async function main(): Promise<void> {
     log('info', 'startup.config', getEnv.summary());
     await DatabaseConfig.connect();
     if (stopping) return;
-    await Promise.all([Resume.init(), AuthCode.init(), AuthSession.init()]);
+    await Promise.all([Resume.init(), AuthCode.init(), AuthSession.init(), Answer.init(), ATSAnalysis.init(), JobApplication.init()]);
     if (stopping) return;
 
     await redisConnection.connect();
