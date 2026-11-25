@@ -1,4 +1,5 @@
 import type { RequestHandler } from 'express';
+import { profileCompletion } from '../services/profileService.js';
 import User from '../models/User.js';
 import { updateSchema } from '../schemas/profile.js';
 import { buildProfileUpdate } from '../utils/profile-update.js';
@@ -16,4 +17,12 @@ export const updateProfile: RequestHandler = async (req, res) => {
   const user = await User.findByIdAndUpdate(req.authenticatedUser?._id, { $set: updates }, { new: true, runValidators: true });
   if (!user) throw new HttpError(404, 'User not found');
   res.json({ message: 'Profile updated successfully', user });
+};
+
+export const getMyProfile: RequestHandler = (req, res) => {
+  res.json(req.authenticatedUser);
+};
+
+export const getProfileCompletion: RequestHandler = (req, res) => {
+  res.json(profileCompletion(req.authenticatedUser!));
 };

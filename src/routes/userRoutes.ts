@@ -1,7 +1,10 @@
 import { Router } from 'express';
-import { getProfile, updateProfile } from '../controllers/userController.js';
+import { getProfile, updateProfile, getMyProfile, getProfileCompletion } from '../controllers/userController.js';
 import { protect, requireOwner } from '../middlewares/authMiddleware.js';
 const router = Router();
+router.get('/me', protect, getMyProfile);
+router.put('/me', protect, updateProfile);
+router.get('/me/completion', protect, getProfileCompletion);
 router.get('/:id', protect, requireOwner, getProfile);
 router.put('/:id', protect, requireOwner, updateProfile);
 export default router;

@@ -9,6 +9,9 @@ import { redisConnection } from './config/redis.config.js';
 import { createApp } from './app.js';
 import { createSessionStore } from './config/session.config.js';
 import { DatabaseConfig } from './config/database.config.js';
+import { Resume } from './models/Resume.js';
+import { AuthCode } from './models/AuthCode.js';
+import { AuthSession } from './models/AuthSession.js';
 import { getEnv } from './config/env.config.js';
 
 const STARTUP_TIMEOUT_MS = 30_000;
@@ -151,6 +154,8 @@ export async function main(): Promise<void> {
     getEnv.validate();
     log('info', 'startup.config', getEnv.summary());
     await DatabaseConfig.connect();
+    if (stopping) return;
+    await Promise.all([Resume.init(), AuthCode.init(), AuthSession.init()]);
     if (stopping) return;
 
     await redisConnection.connect();

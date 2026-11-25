@@ -15,7 +15,7 @@ const education = z.object({
 const experience = z.object({
   _id: subdocumentId,
   jobTitle: optional, company: optional, employmentType: optional, startDate: optional,
-  endDate: optional, jobDescription: optional
+  endDate: optional, jobDescription: optional, isCurrentJob: z.boolean().optional()
 }).strict();
 const project = z.object({ _id: subdocumentId, name: optional, description: optional, technologies: strings.optional(), link: optional }).strict();
 const certification = z.object({ _id: subdocumentId, name: optional, issuingOrganization: optional, issueDate: optional, url: optional }).strict();
@@ -24,12 +24,13 @@ const skills = z.object({
   languages: strings.optional(), tools: strings.optional()
 }).strict();
 const jobPreferences = z.object({
-  desiredRoles: optional, workLocation: optional, jobType: optional,
+  desiredRoles: optional, workAuthorization: optional, availableFrom: optional, remotePreference: optional, workLocation: optional, jobType: optional,
   expectedSalary: optional, noticePeriod: optional, relocate: optional,
   visaSponsorship: optional, preferredIndustries: strings.optional(), travelWillingness: optional
 }).strict();
 
 export const profileSchema = z.object({
+  firstName: optional, lastName: optional, preferredName: optional, headline: optional, summary: optional,
   phone: optional, dob: optional, gender: optional, nationality: optional, portfolio: optional,
   github: optional, linkedin: optional, address: address.optional(), skills: skills.optional(),
   education: z.array(education).max(100).optional(), experience: z.array(experience).max(100).optional(),
