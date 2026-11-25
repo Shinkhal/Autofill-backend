@@ -9,6 +9,9 @@ import './config/passport.js';
 import authRoutes from './routes/authRoutes.js';
 import resumeRoutes from './routes/resumeRoutes.js';
 import userRoutes from './routes/userRoutes.js';
+import jobRoutes from './routes/jobRoutes.js';
+import jobListingRoutes from './routes/jobListing.js';
+import atsRoutes from "./routes/atsRoutes.js";
 
 
 dotenv.config();
@@ -34,6 +37,9 @@ app.use(passport.session());
 app.use('/auth', authRoutes);
 app.use('/api/resume', resumeRoutes);
 app.use('/api/user', userRoutes);
+app.use('/api/jobs', jobRoutes);
+app.use('/api/listjobs', jobListingRoutes);
+app.use('/api/ats', atsRoutes);
 
 const PORT = process.env.PORT;
 app.listen(PORT, () => {

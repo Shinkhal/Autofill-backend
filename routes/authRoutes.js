@@ -26,7 +26,7 @@ router.get('/google/callback', passport.authenticate('google', {
   }
 
   const token = jwt.sign(
-    { id: user._id, email: user.email, name: user.name },
+    { id: user._id, email: user.email, name: user.name , image: user.image },
     process.env.JWT_SECRET,
     { expiresIn: '7d' }
   );

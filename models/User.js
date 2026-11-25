@@ -6,7 +6,6 @@ const userSchema = new mongoose.Schema({
   email: { type: String, required: true, unique: true },
   image: String,
 
-  // Additional profile info user fills manually
   profile: {
     phone: String,
     dob: String,
@@ -66,7 +65,8 @@ const userSchema = new mongoose.Schema({
       {
         name: String,
         issuingOrganization: String,
-        issueDate: String
+        issueDate: String,
+        url : String
       }
     ],
 
@@ -83,6 +83,10 @@ const userSchema = new mongoose.Schema({
     visaSponsorship: String,
     preferredIndustries: [String],
     travelWillingness: String
+  },
+  resumeChecks: {
+    type: Number,
+    default: 0
   }
 
 }, { timestamps: true });

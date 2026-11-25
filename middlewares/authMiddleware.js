@@ -13,8 +13,8 @@ export const protect = async (req, res, next) => {
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    // This assumes your token has: { userId: user._id }
-    req.user = await User.findById(decoded.userId).select('-password');
+    // This assumes your token has: { id: user._id }
+    req.user = await User.findById(decoded.id).select('-password');
 
     if (!req.user) {
       return res.status(404).json({ message: 'User not found in database' });

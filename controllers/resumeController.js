@@ -73,8 +73,7 @@ export const handleResumeUpload = async (req, res) => {
     }
 
     res.status(200).json({
-      message: "Profile updated successfully from resume",
-      user: updatedUser,
+      message: "Profile updated successfully from resume"
     });
 
   } catch (err) {
