@@ -13,6 +13,8 @@ Object.assign(process.env, {
   SERVER_URL: 'http://localhost:5000'
 });
 const { createApp } = await import('../dist/app.js');
+const { AuthSession } = await import('../dist/models/AuthSession.js');
+const testSessionId = '507f1f77bcf86cd799439099';
 const { signToken, verifyToken } = await import('../dist/services/tokenService.js');
 const { updateSchema, resumeSchema } = await import('../dist/schemas/profile.js');
 const { buildProfileUpdate, resumeUpdate } = await import('../dist/utils/profile-update.js');
@@ -41,7 +43,7 @@ test('Health endpoint reports unavailable without MongoDB', async () => {
 
 test('JWT round trip uses consistent claims', () => {
   const id = '507f1f77bcf86cd799439011';
-  assert.equal(verifyToken(signToken({ id, email: 'test@example.com', name: 'Test' })), id);
+  assert.equal(verifyToken(signToken({ id, email: 'test@example.com', name: 'Test' }, testSessionId)).id, id);
   assert.throws(() => verifyToken('invalid'));
 });
 
@@ -147,10 +149,11 @@ test('Job applications validate status and disallow owner injection', () => {
 test('Authenticated job creation binds owner on server', async t => {
   const id = '507f1f77bcf86cd799439011';
   t.mock.method(User, 'findById', async () => ({ _id: id }));
+  t.mock.method(AuthSession, 'exists', async () => ({ _id: testSessionId }));
   let saved;
   t.mock.method(JobApplication, 'create', async data => { saved = data; return data; });
   const response = await fetch(base + '/api/jobs', {
-    method:'POST', headers:{ Authorization:'Bearer '+signToken({id,email:'test@example.com',name:'Test'}), 'Content-Type':'application/json' },
+    method:'POST', headers:{ Authorization:'Bearer '+signToken({id,email:'test@example.com',name:'Test'}, testSessionId), 'Content-Type':'application/json' },
     body:JSON.stringify({company:'ACME',role:'Developer'})
   });
   assert.equal(response.status, 201);

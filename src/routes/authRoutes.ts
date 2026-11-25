@@ -1,7 +1,15 @@
 import { Router } from 'express';
 import passport from 'passport';
-import { googleCallback } from '../controllers/authController.js';
+import { googleCallback, exchange, refresh, me, logout, logoutAll, listSessions, deleteSession } from '../controllers/authController.js';
+import { protect } from '../middlewares/authMiddleware.js';
 const router = Router();
 router.get('/google', passport.authenticate('google', { scope: ['profile', 'email'], session: false }));
 router.get('/google/callback', passport.authenticate('google', { failureRedirect: '/', session: false }), googleCallback);
+router.post('/exchange', exchange);
+router.post('/refresh', refresh);
+router.get('/me', protect, me);
+router.post('/logout', protect, logout);
+router.post('/logout-all', protect, logoutAll);
+router.get('/sessions', protect, listSessions);
+router.delete('/sessions/:id', protect, deleteSession);
 export default router;

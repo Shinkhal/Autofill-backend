@@ -17,6 +17,7 @@ const schema = z.object({
   CLIENT_URL: z.string().url().regex(/^https?:\/\//),
   RAPIDAPI_KEY: optionalString,
   JOOBLE_API_KEY: optionalString,
+  EXTENSION_ORIGINS: z.string().default(''),
   TRUST_PROXY: z.coerce.number().int().min(0).default(0),
   LOG_LEVEL: z.enum(['trace', 'debug', 'info', 'warn', 'error', 'fatal', 'silent']).optional(),
   UPSTASH_REDIS_REST_URL: optionalString,
@@ -24,6 +25,7 @@ const schema = z.object({
   UPSTASH_REDIS_TCP_URL: optionalString
 }).superRefine((value, ctx) => {
   const issue = (key: string) => ctx.addIssue({ code: 'custom', path: [key], message: 'Invalid configuration' });
+  if (value.EXTENSION_ORIGINS.split(',').map(s => s.trim()).filter(Boolean).some(s => !/^(chrome|moz)-extension:\/\/[a-zA-Z0-9-]+$/.test(s))) issue('EXTENSION_ORIGINS');
   if (Boolean(value.UPSTASH_REDIS_REST_URL) !== Boolean(value.UPSTASH_REDIS_REST_TOKEN)) {
     issue('UPSTASH_REDIS_REST_URL'); issue('UPSTASH_REDIS_REST_TOKEN');
   }
@@ -54,7 +56,7 @@ export const getEnv = {
     trustProxy: () => values().TRUST_PROXY,
     isDocker: () => process.env.DOCKER === 'true' || process.env.CONTAINER === 'true' || Boolean(process.env.KUBERNETES_SERVICE_HOST)
   },
-  client: { url: () => values().CLIENT_URL },
+  client: { url: () => values().CLIENT_URL, extensionOrigins: () => values().EXTENSION_ORIGINS.split(',').map(s => s.trim()).filter(Boolean) },
   database: {
     uri: () => values().MONGODB_URI,
     name: () => values().MONGODB_DB_NAME

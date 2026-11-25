@@ -9,6 +9,7 @@ import MongoStore from 'connect-mongo';
 import session from 'express-session';
 
 mongoose.connect = async () => mongoose;
+mongoose.Model.init = async () => undefined;
 mongoose.disconnect = async () => console.log('fixture.database.closed');
 const store = new session.MemoryStore();
 store.close = async () => console.log('fixture.session.closed');

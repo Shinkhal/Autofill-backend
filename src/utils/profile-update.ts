@@ -26,7 +26,7 @@ export function resumeUpdate(data: ResumeData): Record<string, unknown> {
       ...profile,
       skills: { technicalSkills, softSkills, tools, languages },
       education: education?.map(({ graduationYear, ...entry }) => ({ ...entry, endDate: entry.endDate || graduationYear })),
-      experience: workExperience?.map(({ isCurrentJob: _current, achievements: _achievements, ...entry }) => entry)
+      experience: workExperience?.map(({ achievements: _achievements, ...entry }) => entry)
     },
     jobPreferences
   });

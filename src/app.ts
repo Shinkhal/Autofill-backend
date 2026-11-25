@@ -18,6 +18,7 @@ import userRoutes from './routes/userRoutes.js';
 import jobRoutes from './routes/jobRoutes.js';
 import jobListingRoutes from './routes/jobListing.js';
 import atsRoutes from './routes/atsRoutes.js';
+import autofillRoutes from './routes/autofillRoutes.js';
 import { errorHandler } from './middlewares/errorHandler.js';
 
 const MINUTE_MS = 60_000;
@@ -73,7 +74,7 @@ export function createApp(store: session.Store, options: AppOptions = {}): Expre
     strictTransportSecurity: getEnv.app.env() === 'production' ? undefined : false
   }));
   app.use(cors({
-    origin: new URL(getEnv.client.url()).origin,
+    origin: [new URL(getEnv.client.url()).origin, ...getEnv.client.extensionOrigins()],
     credentials: true,
     exposedHeaders: ['X-Request-ID', 'RateLimit', 'RateLimit-Policy']
   }));
@@ -128,6 +129,7 @@ export function createApp(store: session.Store, options: AppOptions = {}): Expre
   app.use('/api/jobs', jobRoutes);
   app.use('/api/listjobs', jobListingRoutes);
   app.use('/api/ats', atsRoutes);
+  app.use('/api/autofill', autofillRoutes);
 
   // Always register the fallback and error handler last.
   app.use((_req, res) => {

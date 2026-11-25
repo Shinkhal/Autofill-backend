@@ -5,7 +5,7 @@ import { getEnv } from '../config/env.config.js';
 import { HttpError } from '../utils/http-error.js';
 import type { ListingQuery, SalaryQuery, ProviderSource } from '../schemas/listing.js';
 
-const rowSchema = z.record(z.unknown());
+const rowSchema = z.record(z.string(), z.unknown());
 type ProviderRow = z.infer<typeof rowSchema>;
 type Listing = Record<string, unknown> & { source: string; jobId: string | number };
 

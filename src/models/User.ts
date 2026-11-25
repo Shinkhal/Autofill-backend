@@ -7,6 +7,11 @@ const userSchema = new mongoose.Schema({
   image: String,
 
   profile: {
+    firstName: String,
+    lastName: String,
+    preferredName: String,
+    headline: String,
+    summary: String,
     phone: String,
     dob: String,
     gender: String,
@@ -49,6 +54,7 @@ const userSchema = new mongoose.Schema({
         startDate: String,
         endDate: String,
         jobDescription: String,
+        isCurrentJob: Boolean,
       }
     ],
 
@@ -75,6 +81,9 @@ const userSchema = new mongoose.Schema({
 
   jobPreferences: {
     desiredRoles: String,
+    workAuthorization: String,
+    availableFrom: String,
+    remotePreference: String,
     workLocation: String,
     jobType: String,
     expectedSalary: String,
