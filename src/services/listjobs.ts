@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import striptags from 'striptags';
-import { env } from '../config/env.js';
+import { logger } from '../utils/logger.util.js';
+import { getEnv } from '../config/env.config.js';
 import { HttpError } from '../utils/http-error.js';
 import type { ListingQuery, SalaryQuery, ProviderSource } from '../schemas/listing.js';
 
@@ -32,17 +33,19 @@ async function fetchRows(url: URL, key: string, init?: RequestInit): Promise<Pro
 }
 
 function rapidHeaders(): Record<string, string> {
-  if (!env.RAPIDAPI_KEY) throw new HttpError(503, 'JSearch is not configured');
-  return { 'x-rapidapi-key': env.RAPIDAPI_KEY, 'x-rapidapi-host': 'jsearch.p.rapidapi.com' };
+  const key = getEnv.jobs.rapidApiKey();
+  if (!key) throw new HttpError(503, 'JSearch is not configured');
+  return { 'x-rapidapi-key': key, 'x-rapidapi-host': 'jsearch.p.rapidapi.com' };
 }
 function jooble(query: string, location: string): Promise<ProviderRow[]> {
-  if (!env.JOOBLE_API_KEY) return Promise.reject(new HttpError(503, 'Jooble is not configured'));
-  return fetchRows(new URL('https://jooble.org/api/' + encodeURIComponent(env.JOOBLE_API_KEY)), 'jobs', {
+  const key = getEnv.jobs.joobleApiKey();
+  if (!key) return Promise.reject(new HttpError(503, 'Jooble is not configured'));
+  return fetchRows(new URL('https://jooble.org/api/' + encodeURIComponent(key)), 'jobs', {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ keywords: query, location })
   });
 }
 function jsearch(path: string, params: Record<string, string>): Promise<ProviderRow[]> {
-  if (!env.RAPIDAPI_KEY) return Promise.reject(new HttpError(503, 'JSearch is not configured'));
+  if (!getEnv.jobs.rapidApiKey()) return Promise.reject(new HttpError(503, 'JSearch is not configured'));
   const url = new URL(path, 'https://jsearch.p.rapidapi.com');
   url.search = new URLSearchParams(params).toString();
   return fetchRows(url, 'data', { headers: rapidHeaders() });
@@ -169,7 +172,7 @@ export async function listJobs(query: ListingQuery) {
   results.forEach((result, index) => {
     const source = providers[index]!;
     if (result.status === 'rejected') {
-      console.warn('Job provider unavailable:', source);
+      logger.warn({ event: 'job.provider.unavailable', source });
       return;
     }
     successful++;

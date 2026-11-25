@@ -1,12 +1,12 @@
 import passport from 'passport';
 import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
-import { env } from './env.js';
+import { getEnv } from './env.config.js';
 
 export function configurePassport(): void {
   passport.use(new GoogleStrategy({
-    clientID: env.GOOGLE_CLIENT_ID,
-    clientSecret: env.GOOGLE_CLIENT_SECRET,
-    callbackURL: new URL('/auth/google/callback', env.SERVER_URL).href,
+    clientID: getEnv.google.clientId(),
+    clientSecret: getEnv.google.clientSecret(),
+    callbackURL: new URL('/auth/google/callback', getEnv.app.url()).href,
     state: true
   }, (_accessToken, _refreshToken, profile, done) => done(null, profile)));
 }

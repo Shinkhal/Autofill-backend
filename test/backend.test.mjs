@@ -197,3 +197,65 @@ test('ATS quota prevents analysis when reservation is unavailable', async t => {
   assert.equal(status, 400);
   assert.equal(body.code, 'FREE_LIMIT_REACHED');
 });
+
+const { createHttpServer, closeHttpServer } = await import('../dist/server.js');
+
+test('Liveness is distinct from database readiness', async () => {
+  assert.equal((await fetch(base + '/health/live')).status, 200);
+  assert.equal((await fetch(base + '/health/ready')).status, 503);
+});
+
+test('Sensitive endpoints and health probes are not cacheable; requests have IDs', async () => {
+  const response = await fetch(base + '/api/jobs');
+  assert.equal(response.headers.get('cache-control'), 'no-store');
+  assert.match(response.headers.get('x-request-id'), /^[a-f0-9-]{36}$/);
+  const health = await fetch(base + '/health');
+  assert.equal(health.headers.get('cache-control'), 'no-store');
+});
+
+test('Readiness is disabled and new API work rejected while draining', async () => {
+  let draining = false;
+  const instance = createHttpServer(createApp(new session.MemoryStore(), {
+    isReady: () => true,
+    isDraining: () => draining
+  }));
+  instance.listen(0, '127.0.0.1');
+  await new Promise(resolve => instance.once('listening', resolve));
+  const url = 'http://127.0.0.1:' + instance.address().port;
+  try {
+    assert.equal((await fetch(url + '/health/ready')).status, 200);
+    draining = true;
+    assert.equal((await fetch(url + '/health/ready')).status, 503);
+    assert.equal((await fetch(url + '/health/live')).status, 200);
+    const response = await fetch(url + '/api/jobs');
+    assert.equal(response.status, 503);
+    assert.equal(response.headers.get('connection'), 'close');
+  } finally {
+    await closeHttpServer(instance);
+  }
+});
+
+test('Closing HTTP server lets an active response finish', async () => {
+  const { default: express } = await import('express');
+  const app = express();
+  let release, entered;
+  const active = new Promise(resolve => { entered = resolve; });
+  const gate = new Promise(resolve => { release = resolve; });
+  app.get('/slow', async (_req, res) => {
+    entered();
+    await gate;
+    res.send('completed');
+  });
+  const instance = createHttpServer(app);
+  instance.listen(0, '127.0.0.1');
+  await new Promise(resolve => instance.once('listening', resolve));
+  const response = fetch('http://127.0.0.1:' + instance.address().port + '/slow');
+  await active;
+  let closed = false;
+  const closing = closeHttpServer(instance).then(() => { closed = true; });
+  assert.equal(closed, false);
+  release();
+  assert.equal(await (await response).text(), 'completed');
+  await closing;
+  assert.equal(closed, true);
+});

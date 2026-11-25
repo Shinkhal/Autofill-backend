@@ -1,3 +1,4 @@
+import { logger } from '../utils/logger.util.js';
 import type { ErrorRequestHandler } from 'express';
 import { ZodError } from 'zod';
 import { MulterError } from 'multer';
@@ -19,6 +20,6 @@ export const errorHandler: ErrorRequestHandler = (error: unknown, _req, res, nex
   if (error instanceof Error && 'status' in error && error.status === 413) {
     res.status(413).json({ message: 'Request body too large' }); return;
   }
-  console.error('Request failed:', error instanceof Error ? error.name : 'UnknownError');
+  logger.error({ event: 'http.request.failed', error: error instanceof Error ? error.name : 'UnknownError', requestId: res.getHeader('X-Request-ID') });
   res.status(500).json({ message: 'Internal server error' });
 };

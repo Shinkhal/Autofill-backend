@@ -1,7 +1,7 @@
 import type { RequestHandler } from 'express';
 import { z } from 'zod';
 import User from '../models/User.js';
-import { env } from '../config/env.js';
+import { getEnv } from '../config/env.config.js';
 import { signToken } from '../services/tokenService.js';
 import { HttpError } from '../utils/http-error.js';
 
@@ -21,7 +21,7 @@ export const googleCallback: RequestHandler = async (req, res) => {
     $setOnInsert: { googleId: profile.id, name: profile.displayName, email, image: profile.photos?.[0]?.value }
   }, { upsert: true, new: true, runValidators: true });
   const token = signToken({ id: user._id.toString(), email: user.email, name: user.name, image: user.image ?? undefined });
-  const redirect = new URL('/auth-success', env.CLIENT_URL);
+  const redirect = new URL('/auth-success', getEnv.client.url());
   redirect.searchParams.set('token', token);
   res.set('Cache-Control', 'no-store').redirect(redirect.href);
 };

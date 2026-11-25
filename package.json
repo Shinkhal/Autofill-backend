@@ -16,6 +16,7 @@
   "description": "Job application autofill backend",
   "dependencies": {
     "@google/genai": "^0.15.0",
+    "@upstash/redis": "^1.41.1",
     "connect-mongo": "^5.1.0",
     "cors": "^2.8.6",
     "dotenv": "^16.6.1",
@@ -23,12 +24,14 @@
     "express-rate-limit": "^8.7.5",
     "express-session": "^1.19.0",
     "helmet": "^8.3.0",
+    "ioredis": "^6.1.0",
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^8.24.11",
     "multer": "^2.5.0",
     "passport": "^0.7.0",
     "passport-google-oauth20": "^2.0.0",
     "pdf-parse": "^2.4.5",
+    "pino": "^10.4.0",
     "striptags": "^3.2.0",
     "zod": "^3.25.76"
   },

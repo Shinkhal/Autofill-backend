@@ -3,11 +3,13 @@ import { createServer, type Server } from 'node:http';
 import { pathToFileURL } from 'node:url';
 import type { Express } from 'express';
 import type MongoStore from 'connect-mongo';
-import mongoose from 'mongoose';
+import { logger } from './utils/logger.util.js';
+import { redisConnection } from './config/redis.config.js';
 
-import { createApp, createSessionStore } from './app.js';
-import { connectDB } from './config/db.js';
-import { env } from './config/env.js';
+import { createApp } from './app.js';
+import { createSessionStore } from './config/session.config.js';
+import { DatabaseConfig } from './config/database.config.js';
+import { getEnv } from './config/env.config.js';
 
 const STARTUP_TIMEOUT_MS = 30_000;
 const SHUTDOWN_TIMEOUT_MS = 30_000;
@@ -15,9 +17,7 @@ const SHUTDOWN_TIMEOUT_MS = 30_000;
 type ShutdownReason = 'SIGINT' | 'SIGTERM' | 'startup-failure' | 'server-error' | 'uncaught-exception' | 'unhandled-rejection';
 
 function log(level: 'info' | 'error', event: string, details: Record<string, unknown> = {}): void {
-  const entry = JSON.stringify({ level, event, timestamp: new Date().toISOString(), ...details });
-  if (level === 'error') console.error(entry);
-  else console.info(entry);
+  logger[level]({ event, ...details });
 }
 
 function errorName(error: unknown): string {
@@ -57,7 +57,7 @@ function listen(server: Server): Promise<void> {
     };
     server.once('error', onError);
     server.once('listening', onListening);
-    server.listen(env.PORT);
+    server.listen(getEnv.app.port());
   });
 }
 
@@ -104,16 +104,17 @@ export async function main(): Promise<void> {
         server?.closeAllConnections();
       }
 
-      // Close both database connections only after HTTP requests finish.
+      // Close session, database and Redis connections only after HTTP requests finish.
       const results = await Promise.allSettled([
         store?.close() ?? Promise.resolve(),
-        mongoose.disconnect()
+        DatabaseConfig.disconnect(),
+        redisConnection.disconnect()
       ]);
       for (const [index, result] of results.entries()) {
         if (result.status === 'rejected') {
           exitCode = 1;
           log('error', 'shutdown.dependency.failed', {
-            dependency: index === 0 ? 'oauth-session-store' : 'mongodb',
+            dependency: ['oauth-session-store', 'mongodb', 'redis'][index],
             error: errorName(result.reason)
           });
         }
@@ -146,10 +147,14 @@ export async function main(): Promise<void> {
   startupDeadline.unref();
 
   startup = (async () => {
-    log('info', 'startup.started', { environment: env.NODE_ENV, port: env.PORT });
-    await connectDB();
+    log('info', 'startup.started', { environment: getEnv.app.env(), port: getEnv.app.port() });
+    getEnv.validate();
+    log('info', 'startup.config', getEnv.summary());
+    await DatabaseConfig.connect();
     if (stopping) return;
 
+    await redisConnection.connect();
+    if (stopping) return;
     store = createSessionStore();
     store.on('error', (error: unknown) => {
       log('error', 'session-store.error', { error: errorName(error) });
@@ -160,7 +165,7 @@ export async function main(): Promise<void> {
 
     server = createHttpServer(createApp(store, {
       isDraining: () => stopping,
-      isReady: () => ready && mongoose.connection.readyState === 1
+      isReady: () => ready && DatabaseConfig.getConnectionStatus()
     }));
     await listen(server);
     server.on('error', error => {
@@ -170,7 +175,7 @@ export async function main(): Promise<void> {
 
     if (!stopping) {
       ready = true;
-      log('info', 'startup.ready', { port: env.PORT });
+      log('info', 'startup.ready', { port: getEnv.app.port() });
     }
   })();
 

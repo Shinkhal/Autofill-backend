@@ -5,12 +5,13 @@ import cors from 'cors';
 import helmet from 'helmet';
 import { rateLimit } from 'express-rate-limit';
 import passport from 'passport';
-import session from 'express-session';
-import MongoStore from 'connect-mongo';
-import mongoose from 'mongoose';
+import type session from 'express-session';
+import { createSessionMiddleware } from './config/session.config.js';
+import { DatabaseConfig } from './config/database.config.js';
+import { logger } from './utils/logger.util.js';
 
-import { env } from './config/env.js';
-import { configurePassport } from './config/passport.js';
+import { getEnv } from './config/env.config.js';
+import { configurePassport } from './config/passport.config.js';
 import authRoutes from './routes/authRoutes.js';
 import resumeRoutes from './routes/resumeRoutes.js';
 import userRoutes from './routes/userRoutes.js';
@@ -20,25 +21,10 @@ import atsRoutes from './routes/atsRoutes.js';
 import { errorHandler } from './middlewares/errorHandler.js';
 
 const MINUTE_MS = 60_000;
-const SESSION_TTL_SECONDS = 600;
 
 interface AppOptions {
   isDraining?: () => boolean;
   isReady?: () => boolean;
-}
-
-export function createSessionStore(): MongoStore {
-  return MongoStore.create({
-    mongoUrl: env.MONGODB_URI,
-    dbName: 'jobautofill',
-    ttl: SESSION_TTL_SECONDS,
-    autoRemove: 'native',
-    mongoOptions: {
-      serverSelectionTimeoutMS: 10_000,
-      connectTimeoutMS: 10_000,
-      maxPoolSize: 10
-    }
-  });
 }
 
 function limiter(windowMs: number, limit: number, message = 'Too many requests'): RequestHandler {
@@ -57,17 +43,16 @@ const requestTelemetry: RequestHandler = (req, res, next) => {
   res.setHeader('X-Request-ID', requestId);
 
   // Do not log request URLs, headers, bodies, tokens or resume data.
-  if (env.NODE_ENV !== 'test') {
+  if (getEnv.app.env() !== 'test') {
     res.once('close', () => {
-      console.info(JSON.stringify({
-        level: 'info',
+      logger.info({
         event: 'http.request',
         requestId,
         method: req.method,
         status: res.writableFinished ? res.statusCode : undefined,
         aborted: !res.writableFinished,
         durationMs: Math.round(performance.now() - started)
-      }));
+      });
     });
   }
   next();
@@ -76,19 +61,19 @@ const requestTelemetry: RequestHandler = (req, res, next) => {
 export function createApp(store: session.Store, options: AppOptions = {}): Express {
   const app = express();
   const isDraining = options.isDraining ?? (() => false);
-  const isReady = options.isReady ?? (() => mongoose.connection.readyState === 1);
+  const isReady = options.isReady ?? (() => DatabaseConfig.getConnectionStatus());
 
   // Application and security middleware
   app.disable('x-powered-by');
   app.disable('etag');
-  app.set('trust proxy', env.TRUST_PROXY);
+  app.set('trust proxy', getEnv.app.trustProxy());
 
   app.use(requestTelemetry);
   app.use(helmet({
-    strictTransportSecurity: env.NODE_ENV === 'production' ? undefined : false
+    strictTransportSecurity: getEnv.app.env() === 'production' ? undefined : false
   }));
   app.use(cors({
-    origin: new URL(env.CLIENT_URL).origin,
+    origin: new URL(getEnv.client.url()).origin,
     credentials: true,
     exposedHeaders: ['X-Request-ID', 'RateLimit', 'RateLimit-Policy']
   }));
@@ -135,19 +120,7 @@ export function createApp(store: session.Store, options: AppOptions = {}): Expre
 
   // OAuth state is stored server-side; JWT-protected API routes do not need sessions.
   configurePassport();
-  app.use('/auth', session({
-    name: 'autofill.oauth',
-    secret: env.SESSION_SECRET ?? env.JWT_SECRET,
-    store,
-    resave: false,
-    saveUninitialized: false,
-    cookie: {
-      httpOnly: true,
-      secure: env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: SESSION_TTL_SECONDS * 1000
-    }
-  }), passport.initialize(), authRoutes);
+  app.use('/auth', createSessionMiddleware(store), passport.initialize(), authRoutes);
 
   // API routes
   app.use('/api/resume', resumeRoutes);

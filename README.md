@@ -81,3 +81,59 @@ ATS analysis compares resume text with a job description and returns a score, su
 The listing service normalizes JSearch, Jobicy, Remotive and Jooble data. Providers are fetched concurrently with timeouts; successful responses remain available if some providers fail. Optional provider keys may be left empty. Jobicy, Remotive and Jooble details depend on whether the requested listing is present in the provider's returned search results. Descriptions are delivered as plain text rather than provider HTML. Frontends must render untrusted text safely.
 
 The InterviewProgress model is migrated, but the upstream interview controller was empty and no interview endpoints were implemented. Test coverage includes mocked job providers and database methods, not live integrations.
+
+## Runtime lifecycle
+
+The server connects to MongoDB and verifies that the OAuth session store can be
+read (including its TTL index initialization) before binding the HTTP port.
+Startup failures exit nonzero. HTTP header and request-body reception have
+15-second and 60-second timeouts, respectively; keep-alive is 5 seconds.
+These reception timeouts do not impose a processing deadline on AI calls.
+
+Use GET /health/live for process liveness and GET /health/ready (or the
+existing GET /health) for readiness. Readiness requires startup to finish
+and the Mongoose connection to be connected. Probes are not rate limited.
+
+On SIGINT or SIGTERM, readiness is disabled, new application work is rejected
+with HTTP 503, and the server stops accepting connections. Active HTTP
+requests are allowed to finish before both MongoDB connections close. The
+shutdown deadline is 30 seconds; configure the hosting platform's termination
+grace period accordingly. Fatal startup/runtime errors exit nonzero.
+
+Request logs contain a generated request ID, HTTP method, status and duration,
+but never raw URLs, query parameters, authorization headers or resume contents.
+The same request ID is returned in X-Request-ID. Auth and API responses are
+marked no-store. Existing endpoint paths and response bodies are preserved.
+
+## Configuration layer
+
+Environment values are accessed through the validated, grouped `getEnv`
+API in `src/config/env.config.ts`; no secrets appear in the startup summary.
+The remaining configuration files manage the Mongoose singleton, Upstash
+Redis, Passport and the OAuth session store. Pino emits structured JSON logs
+through `src/utils/logger.util.ts`. Set LOG_LEVEL to override the environment
+default.
+
+MongoDB remains the application database. MONGODB_DB_NAME defaults to
+jobautofill and is shared with the session store. The database config provides
+bounded connection retries, a connection status accessor, a ping health
+check and cleanup.
+
+Redis is optional for the existing features. Set both UPSTASH_REDIS_REST_URL
+and UPSTASH_REDIS_REST_TOKEN to enable the HTTP client; startup then checks
+Redis connectivity. UPSTASH_REDIS_TCP_URL is optional for future consumers;
+production requires a rediss:// URL with verified TLS. The Redis singleton
+creates TCP connections lazily, provides separate named blocking clients,
+a subscriber and a queue producer, and closes every created client during
+shutdown. No workers or Redis-based caching/rate limiting are enabled yet.
+
+```ts
+import { getEnv } from './config/env.config.js';
+import { redisConnection } from './config/redis.config.js';
+
+const port = getEnv.app.port();
+// Configure the relevant Redis credentials before requesting a client.
+const cache = redisConnection.getClient();
+const worker = redisConnection.getBlockingClient('resume');
+const producer = redisConnection.getQueueClient();
+```
