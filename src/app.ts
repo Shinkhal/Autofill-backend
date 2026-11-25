@@ -18,6 +18,7 @@ import userRoutes from './routes/userRoutes.js';
 import jobRoutes from './routes/jobRoutes.js';
 import jobListingRoutes from './routes/jobListing.js';
 import atsRoutes from './routes/atsRoutes.js';
+import answerRoutes from './routes/answerRoutes.js';
 import autofillRoutes from './routes/autofillRoutes.js';
 import { errorHandler } from './middlewares/errorHandler.js';
 
@@ -130,6 +131,7 @@ export function createApp(store: session.Store, options: AppOptions = {}): Expre
   app.use('/api/listjobs', jobListingRoutes);
   app.use('/api/ats', atsRoutes);
   app.use('/api/autofill', autofillRoutes);
+  app.use('/api/answers', answerRoutes);
 
   // Always register the fallback and error handler last.
   app.use((_req, res) => {

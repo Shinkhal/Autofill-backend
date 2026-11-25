@@ -28,3 +28,15 @@ Job description: ${JSON.stringify(jd)}`;
     throw new HttpError(502, 'ATS analysis failed');
   }
 }
+
+// Deterministic, transparent lexical evidence; not a prediction of employer decisions.
+export function keywordEvidence(resume: string, jd: string) {
+  const stop = new Set(['the','and','for','with','you','your','our','are','will','this','that','from','have','has','job','role','work','team','experience','years','skills','required','requirements','about','into','their','can','all','not','but','who','what','we','to','of','in','is','as','on','or','at','be','an','a']);
+  const tokens = (value: string) => value.toLowerCase().match(/[a-z][a-z0-9+#.-]*/g)?.map(t=>t.replace(/[.-]+$/,'')) ?? [];
+  const resumeWords = new Set(tokens(resume));
+  const counts = new Map<string,number>();
+  for (const word of tokens(jd)) if (word.length > 1 && !stop.has(word)) counts.set(word,(counts.get(word)??0)+1);
+  const keywords = [...counts].sort((a,b)=>b[1]-a[1]).slice(0,40).map(([word])=>word);
+  const matched = keywords.filter(word=>resumeWords.has(word));
+  return {matched,missing:keywords.filter(word=>!resumeWords.has(word)),score:keywords.length ? Math.round(matched.length/keywords.length*300)/10 : 0};
+}
